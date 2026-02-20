@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useGatewayStore } from './stores/gateway';
-import { ServerList } from './components/ServerList';
-import { ChannelList } from './components/ChannelList';
+import { PodList } from './components/PodList';
+import { ThreadList } from './components/ThreadList';
 import { ChatView } from './components/ChatView';
 import { LoginView } from './components/LoginView';
 
@@ -23,8 +23,8 @@ function App() {
 
       {/* Main Layout */}
       <div className="flex w-full h-full pt-8">
-        <ServerList />
-        <ChannelList />
+        <PodList />
+        <ThreadList />
         <ChatView />
       </div>
     </div>

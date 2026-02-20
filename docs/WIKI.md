@@ -1,6 +1,6 @@
-# Welcome to the Aether Wiki 🌌
+# Welcome to the Yapper Wiki 🗣️
 
-**Aether** is a next-generation communication platform designed for privacy, sovereignty, and performance. It combines the user-friendly experience of modern chat apps (like Discord) with the security of end-to-end encryption and the freedom of self-hosting.
+**Yapper** is a next-generation communication platform designed for privacy, sovereignty, and performance. It combines the user-friendly experience of modern chat apps (like Discord) with the security of end-to-end encryption and the freedom of self-hosting.
 
 ## 📚 Documentation
 
@@ -10,7 +10,7 @@ Deep dive into the Zero-Knowledge architecture, Signal Protocol implementation, 
 
 ### [Deployment Guide](./DEPLOYMENT.md) (Coming Soon)
 
-Instructions for deploying Aether using Docker, Coolify, or manual setup.
+Instructions for deploying Yapper using Docker, Coolify, or manual setup.
 
 ### [Contributing Guide](../../CONTRIBUTING.md) (Coming Soon)
 
@@ -18,7 +18,7 @@ How to set up the development environment, run tests, and submit PRs.
 
 ## 🚀 Project Status
 
-Aether is currently in **Alpha**. The core infrastructure is complete, including:
+Yapper is currently in **Alpha**. The core infrastructure is complete, including:
 
 - ✅ **End-to-End Encryption** (Signal Protocol)
 - ✅ **Real-time Messaging** (Supabase Realtime)
@@ -34,4 +34,4 @@ Aether is currently in **Alpha**. The core infrastructure is complete, including
 
 ## 🤝 Community
 
-Join the discussion on [GitHub Discussions](https://github.com/NikheelR97/Aether/discussions) or contribute to the code!
+Join the discussion on [GitHub Discussions](https://github.com/NikheelR97/Yapper/discussions) or contribute to the code!

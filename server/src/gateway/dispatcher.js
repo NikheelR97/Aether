@@ -7,7 +7,7 @@ const OpCodes = {
     VOICE_SIGNAL: 5, // Custom OpCode for WebRTC Signaling
     RESUME: 6,
     RECONNECT: 7,
-    REQUEST_GUILD_MEMBERS: 8,
+    REQUEST_POD_MEMBERS: 8,
     INVALID_SESSION: 9,
     HELLO: 10,
     HEARTBEAT_ACK: 11,
@@ -22,7 +22,7 @@ function handleMessage(gateway, ws, rawData) {
     }
 
     const { op, d, t } = payload;
-    const { mockGuilds, mockUser } = require('../mock-data');
+    const { mockPods, mockUser } = require('../mock-data');
 
     switch (op) {
         case OpCodes.HEARTBEAT:
@@ -48,9 +48,9 @@ function handleMessage(gateway, ws, rawData) {
                 d: {
                     v: 9,
                     user: sessionUser,
-                    guilds: mockGuilds,
+                    pods: mockPods,
                     session_id: 'holo-session-' + Date.now(),
-                    application: { id: 'app-aether' }
+                    application: { id: 'app-yapper' }
                 }
             });
             break;
@@ -87,7 +87,7 @@ function handleMessage(gateway, ws, rawData) {
             if (!targetFound) console.warn(`[Holo] Target ${d.targetId} not found.`);
             break;
 
-        // Handle Mock Message Send (usually this is HTTP POST in Discord, but WS for Aether demo)
+        // Handle Mock Message Send (usually this is HTTP POST in Discord, but WS for Yapper demo)
         case 0: // Mock Dispatch from Client
             if (t === 'MESSAGE_CREATE') {
                 console.log('[Holo] Message:', d.content);

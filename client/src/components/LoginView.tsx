@@ -90,7 +90,7 @@ export function LoginView() {
                             value={email}
                             onChange={e => setEmail(e.target.value)}
                             className="w-full bg-black/40 border border-white/10 rounded p-2 text-starlight focus:border-nebula outline-none mt-1"
-                            placeholder="pilot@aether.net"
+                            placeholder="pilot@yapper.app"
                             required
                         />
                     </div>

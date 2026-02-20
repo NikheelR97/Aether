@@ -3,38 +3,38 @@ import { useGatewayStore } from '../stores/gateway';
 import { Send } from 'lucide-react';
 
 export function ChatView() {
-    const { messages, currentChannelId, guilds, currentGuildId, sendMessage, connected } = useGatewayStore();
+    const { messages, currentThreadId, pods, currentPodId, sendMessage, connected } = useGatewayStore();
     const [inputValue, setInputValue] = useState('');
     const bottomRef = useRef<HTMLDivElement>(null);
 
-    // 1. Resolve Channel & Guild Context
-    let channel = null;
-    let guildName = '';
+    // 1. Resolve Thread & Pod Context
+    let thread = null;
+    let podName = '';
 
-    if (currentGuildId) {
-        const guild = guilds.find(g => g.id === currentGuildId);
-        if (guild) {
-            channel = guild.channels.find(c => c.id === currentChannelId);
-            guildName = guild.name;
+    if (currentPodId) {
+        const pod = pods.find(g => g.id === currentPodId);
+        if (pod) {
+            thread = pod.threads.find(c => c.id === currentThreadId);
+            podName = pod.name;
         }
     } else {
-        for (const g of guilds) {
-            const found = g.channels.find(c => c.id === currentChannelId);
+        for (const g of pods) {
+            const found = g.threads.find(c => c.id === currentThreadId);
             if (found) {
-                channel = found;
-                guildName = 'Direct Messages';
+                thread = found;
+                podName = 'Direct Messages';
                 break;
             }
         }
     }
 
     // 2. Prepare Data & Handlers (Hooks dependent or otherwise)
-    const channelMessages = currentChannelId ? (messages[currentChannelId] || []) : [];
+    const threadMessages = currentThreadId ? (messages[currentThreadId] || []) : [];
 
     // 3. Hooks (MUST be unconditional)
     useEffect(() => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [channelMessages]);
+    }, [threadMessages]);
 
     const handleSend = () => {
         if (!inputValue.trim()) return;
@@ -59,8 +59,8 @@ export function ChatView() {
         );
     }
 
-    // Case: Guild Selected but not found (e.g. invalid ID)
-    if (currentGuildId && !guilds.find(g => g.id === currentGuildId)) {
+    // Case: Pod Selected but not found (e.g. invalid ID)
+    if (currentPodId && !pods.find(g => g.id === currentPodId)) {
         return (
             <div className="flex-1 bg-void flex items-center justify-center flex-col gap-2">
                 <div className="text-dust">System Not Found</div>
@@ -68,8 +68,8 @@ export function ChatView() {
         );
     }
 
-    // Case: Home View (No Guild) and No DM Selected
-    if (!currentGuildId && !currentChannelId) {
+    // Case: Home View (No Pod) and No DM Selected
+    if (!currentPodId && !currentThreadId) {
         return (
             <div className="flex-1 bg-void flex items-center justify-center flex-col gap-4 opacity-50">
                 <div className="w-16 h-16 rounded-full bg-cosmic flex items-center justify-center text-4xl">🌌</div>
@@ -78,11 +78,11 @@ export function ChatView() {
         );
     }
 
-    // Case: Channel Not Found (or not yet loaded)
-    if (!channel) {
+    // Case: Thread Not Found (or not yet loaded)
+    if (!thread) {
         return (
             <div className="flex-1 bg-void flex items-center justify-center flex-col gap-2">
-                <div className="text-dust">Channel Not Found</div>
+                <div className="text-dust">Thread Not Found</div>
             </div>
         );
     }
@@ -94,23 +94,23 @@ export function ChatView() {
             <div className="h-12 border-b border-cosmic flex items-center px-4 shadow-sm bg-void/80 backdrop-blur shrink-0 justify-between">
                 <div className="flex items-center">
                     <span className="text-dust text-xl mr-2">#</span>
-                    <span className="text-starlight font-bold truncate">{channel.name}</span>
+                    <span className="text-starlight font-bold truncate">{thread.name}</span>
                 </div>
-                <div className="text-xs text-dust/50 font-mono">E2EE: {channel.type === 1 || channel.name.includes(':') ? 'ON 🔒' : 'OFF'}</div>
+                <div className="text-xs text-dust/50 font-mono">E2EE: {thread.type === 1 || thread.name.includes(':') ? 'ON 🔒' : 'OFF'}</div>
             </div>
 
             {/* Messages */}
             <div className="flex-1 p-4 overflow-y-auto flex flex-col gap-4">
-                {channelMessages.length === 0 && (
+                {threadMessages.length === 0 && (
                     <div className="flex-1 flex items-end pb-10 opacity-30">
                         <div>
-                            <div className="text-4xl font-bold text-starlight mb-2">Welcome to #{channel.name}!</div>
-                            <div className="text-dust">This is the start of the <span className="text-nebula">{guildName || 'Private'}</span> server.</div>
+                            <div className="text-4xl font-bold text-starlight mb-2">Welcome to #{thread.name}!</div>
+                            <div className="text-dust">This is the start of the <span className="text-nebula">{podName || 'Private'}</span> server.</div>
                         </div>
                     </div>
                 )}
 
-                {channelMessages.map((msg) => (
+                {threadMessages.map((msg) => (
                     <div key={msg.id || Math.random()} className="flex gap-4 group hover:bg-white/5 p-2 rounded -mx-2 transition-colors">
                         <div className="w-10 h-10 rounded-full bg-cosmic mt-1 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden">
                             {msg.author?.avatar_url ? <img src={msg.author.avatar_url} alt={msg.author.username} /> : '👤'}
@@ -137,7 +137,7 @@ export function ChatView() {
                     </button>
                     <input
                         className="bg-transparent flex-1 outline-none text-starlight placeholder-dust/30 text-sm min-w-0"
-                        placeholder={`Message #${channel.name}`}
+                        placeholder={`Message #${thread.name}`}
                         value={inputValue}
                         onChange={(e) => setInputValue(e.target.value)}
                         onKeyDown={handleKeyDown}

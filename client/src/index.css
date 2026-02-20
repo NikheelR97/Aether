@@ -1,11 +1,11 @@
 @import "tailwindcss";
 
 @theme {
-  --color-void: #0B0C10;
-  --color-cosmic: #1F2833;
-  --color-nebula: #45A29E;
-  --color-starlight: #66FCF1;
-  --color-dust: #C5C6C7;
+  --color-void: #09090b;      /* Flat dark background */
+  --color-cosmic: #18181b;    /* Slightly lighter surface */
+  --color-nebula: #a3e635;    /* High-contrast Acid Green / Lime */
+  --color-starlight: #ffffff; /* Bright white text */
+  --color-dust: #a1a1aa;      /* Subdued gray */
 
   --font-sans: Inter, sans-serif;
   --font-mono: "Fira Code", monospace;

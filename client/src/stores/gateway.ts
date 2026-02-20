@@ -10,23 +10,23 @@ interface User {
     avatar_url: string | null;
 }
 
-interface Channel {
+interface Thread {
     id: string;
-    guild_id: string;
+    pod_id: string;
     name: string;
-    type: 0 | 2; // 0=Text, 2=Voice
+    type: 0 | 1 | 2; // 0=Text, 1=DM, 2=Voice
 }
 
-interface Guild {
+interface Pod {
     id: string;
     name: string;
     icon_url: string | null;
-    channels: Channel[];
+    threads: Thread[];
 }
 
 interface Message {
     id: string;
-    channel_id: string;
+    thread_id: string;
     user_id: string;
     content: string;
     created_at: string;
@@ -36,20 +36,20 @@ interface Message {
 interface GatewayState {
     connected: boolean;
     user: User | null;
-    guilds: Guild[];
-    messages: Record<string, Message[]>; // channelId -> messages
-    currentGuildId: string | null;
-    currentChannelId: string | null;
+    pods: Pod[];
+    messages: Record<string, Message[]>; // threadId -> messages
+    currentPodId: string | null;
+    currentThreadId: string | null;
 
     connect: () => Promise<void>;
-    selectGuild: (guildId: string | null) => void;
-    selectChannel: (channelId: string) => void;
+    selectPod: (podId: string | null) => void;
+    selectThread: (threadId: string) => void;
     sendMessage: (content: string) => Promise<void>;
 
     // Voice
-    activeVoiceChannelId: string | null;
+    activeVoiceThreadId: string | null;
     voicePeers: Record<string, MediaStream>;
-    joinVoice: (channelId: string) => void;
+    joinVoice: (threadId: string) => void;
     leaveVoice: () => void;
 
     // E2EE / DMs
@@ -65,13 +65,13 @@ let e2eeManager: E2EEManager | null = null;
 export const useGatewayStore = create<GatewayState>((set, get) => ({
     connected: false,
     user: null,
-    guilds: [],
-    currentGuildId: null,
-    currentChannelId: null,
+    pods: [],
+    currentPodId: null,
+    currentThreadId: null,
     messages: {},
 
     // Voice
-    activeVoiceChannelId: null,
+    activeVoiceThreadId: null,
     voicePeers: {},
 
     connect: async () => {
@@ -115,39 +115,39 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             else console.log('[E2EE] Keys uploaded successfully');
         }
 
-        // 2. Load Guilds & Channels
-        const { data: guildsData, error: guildsError } = await supabase
-            .from('guilds')
-            .select('*, channels(*)');
+        // 2. Load Pods & Threads
+        const { data: podsData, error: podsError } = await supabase
+            .from('pods')
+            .select('*, threads(*)');
 
-        if (guildsError) {
-            console.error('[Supabase] Failed to fetch guilds:', guildsError);
-        } else if (guildsData) {
+        if (podsError) {
+            console.error('[Supabase] Failed to fetch pods:', podsError);
+        } else if (podsData) {
             // Transform to match interface if needed (Supabase returns simpler structure)
-            const formattedGuilds: Guild[] = guildsData.map(g => ({
+            const formattedPods: Pod[] = podsData.map(g => ({
                 id: g.id,
                 name: g.name,
                 icon_url: g.icon_url,
-                channels: g.channels.map((c: any) => ({
+                threads: g.threads.map((c: any) => ({
                     id: c.id,
-                    guild_id: c.guild_id,
+                    pod_id: c.pod_id,
                     name: c.name,
                     type: c.type
-                })).sort((a: Channel, b: Channel) => a.type - b.type) // Text (0) before Voice (2)
+                })).sort((a: Thread, b: Thread) => a.type - b.type) // Text (0) before Voice (2)
             }));
 
-            set({ guilds: formattedGuilds });
+            set({ pods: formattedPods });
 
-            // Select Default (First Guild, First Channel)
-            if (formattedGuilds.length > 0) {
-                const firstGuild = formattedGuilds[0];
-                const firstChannel = firstGuild.channels[0];
+            // Select Default (First Pod, First Thread)
+            if (formattedPods.length > 0) {
+                const firstPod = formattedPods[0];
+                const firstThread = firstPod.threads[0];
                 set({
-                    currentGuildId: firstGuild.id,
-                    currentChannelId: firstChannel ? firstChannel.id : null
+                    currentPodId: firstPod.id,
+                    currentThreadId: firstThread ? firstThread.id : null
                 });
-                if (firstChannel) {
-                    get().selectChannel(firstChannel.id);
+                if (firstThread) {
+                    get().selectThread(firstThread.id);
                 }
             }
         }
@@ -206,7 +206,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
 
                     const messageWithAuthor: Message = {
                         id: newMessage.id,
-                        channel_id: newMessage.channel_id,
+                        thread_id: newMessage.thread_id,
                         user_id: newMessage.user_id,
                         content: content,
                         created_at: newMessage.created_at,
@@ -216,7 +216,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                     set((state) => ({
                         messages: {
                             ...state.messages,
-                            [newMessage.channel_id]: [...(state.messages[newMessage.channel_id] || []), messageWithAuthor]
+                            [newMessage.thread_id]: [...(state.messages[newMessage.thread_id] || []), messageWithAuthor]
                         }
                     }));
                 }
@@ -262,7 +262,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
         await get().startDM(data.id);
     },
 
-    // Start a Secure DM (Simplified: Create a channel with type 1)
+    // Start a Secure DM (Simplified: Create a thread with type 1)
     startDM: async (targetUserId: string) => {
         const { user } = get();
         if (!user) return;
@@ -274,52 +274,52 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             return;
         }
 
-        // Create DM Channel (or fetch existing)
-        // For simplicity, we create a new channel with a deterministic name "dm-id1-id2"
+        // Create DM Thread (or fetch existing)
+        // For simplicity, we create a new thread with a deterministic name "dm-id1-id2"
         const dmName = [user.id, targetUserId].sort().join(':');
 
-        const { data, error } = await supabase
-            .from('channels')
+        const { data } = await supabase
+            .from('threads')
             .select('*')
             .eq('name', dmName)
             .single();
 
-        let channelId;
+        let threadId;
         if (data) {
-            channelId = data.id;
+            threadId = data.id;
         } else {
-            // Create it (Requires a guild usually, but we'll put it in a "DM Guild" or just null guild if schema allows)
-            // Schema requires guild_id. We'll hack it into the FIRST guild found for now or a system guild.
-            // Better: Let's just assume we are in a guild and create a PRIVATE channel.
-            const firstGuild = get().guilds[0];
-            if (!firstGuild) return;
+            // Create it (Requires a pod usually, but we'll put it in a "DM Pod" or just null pod if schema allows)
+            // Schema requires pod_id. We'll hack it into the FIRST pod found for now or a system pod.
+            // Better: Let's just assume we are in a pod and create a PRIVATE thread.
+            const firstPod = get().pods[0];
+            if (!firstPod) return;
 
-            const { data: newChannel } = await supabase
-                .from('channels')
+            const { data: newThread } = await supabase
+                .from('threads')
                 .insert({
-                    guild_id: firstGuild.id,
+                    pod_id: firstPod.id,
                     name: dmName,
                     type: 1 // 1 = DM / Private
                 })
                 .select()
                 .single();
-            if (newChannel) channelId = newChannel.id;
+            if (newThread) threadId = newThread.id;
         }
 
-        if (channelId) {
-            get().selectChannel(channelId);
+        if (threadId) {
+            get().selectThread(threadId);
         }
     },
 
     sendMessage: async (content: string) => {
-        const { currentChannelId, user, guilds } = get();
-        if (!currentChannelId || !user) return;
+        const { currentThreadId, user, pods } = get();
+        if (!currentThreadId || !user) return;
 
         // Optimistic Update (Local Echo) - Show immediately!
         const tempId = 'temp-' + Date.now();
         const localMessage: Message = {
             id: tempId,
-            channel_id: currentChannelId,
+            thread_id: currentThreadId,
             user_id: user.id,
             content: content,
             created_at: new Date().toISOString(),
@@ -329,24 +329,22 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
         set(state => ({
             messages: {
                 ...state.messages,
-                [currentChannelId]: [...(state.messages[currentChannelId] || []), localMessage]
+                [currentThreadId]: [...(state.messages[currentThreadId] || []), localMessage]
             }
         }));
 
         let finalContent = content;
-        let isEncrypted = false;
-
-        // Check Channel Type
-        // We need to find the channel object to check its type
-        let channelType = 0;
-        // Naively search all guilds
-        for (const g of guilds) {
-            const c = g.channels.find(ch => ch.id === currentChannelId);
+        // Check Thread Type
+        // We need to find the thread object to check its type
+        let threadType = 0;
+        // Naively search all pods
+        for (const g of pods) {
+            const c = g.threads.find(ch => ch.id === currentThreadId);
             if (c) {
-                channelType = c.type;
+                threadType = c.type;
 
                 // If DM (Type 1), Encrypt!
-                if (channelType === 1 || c.name.includes(':')) {
+                if (threadType === 1 || c.name.includes(':')) {
                     // Extract Recipient ID from name "id1:id2"
                     const parts = c.name.split(':');
                     const recipientId = parts.find(id => id !== user.id);
@@ -371,7 +369,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                             set(state => ({
                                 messages: {
                                     ...state.messages,
-                                    [currentChannelId]: state.messages[currentChannelId]?.filter(m => m.id !== tempId) || []
+                                    [currentThreadId]: state.messages[currentThreadId]?.filter(m => m.id !== tempId) || []
                                 }
                             }));
                             return;
@@ -391,7 +389,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                             set(state => ({
                                 messages: {
                                     ...state.messages,
-                                    [currentChannelId]: state.messages[currentChannelId]?.filter(m => m.id !== tempId) || []
+                                    [currentThreadId]: state.messages[currentThreadId]?.filter(m => m.id !== tempId) || []
                                 }
                             }));
                             return;
@@ -404,7 +402,6 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                             recipient: cipherRecipient,
                             sender: cipherSelf
                         });
-                        isEncrypted = true;
                     }
                 }
                 break;
@@ -417,7 +414,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             .from('messages')
             .insert({
                 content: finalContent,
-                channel_id: currentChannelId,
+                thread_id: currentThreadId,
                 user_id: user.id
             });
 
@@ -427,21 +424,21 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
         }
     },
 
-    selectGuild: (guildId) => {
-        set({ currentGuildId: guildId });
+    selectPod: (podId) => {
+        set({ currentPodId: podId });
     },
 
-    selectChannel: async (channelId) => {
-        set({ currentChannelId: channelId });
+    selectThread: async (threadId) => {
+        set({ currentThreadId: threadId });
         // Fetch history
         const { data, error } = await supabase
             .from('messages')
             .select('*, author:profiles(*)') // Join profiles
-            .eq('channel_id', channelId)
+            .eq('thread_id', threadId)
             .order('created_at', { ascending: true });
 
         if (error) {
-            console.error('[Gateway] Failed to fetch channel history:', error);
+            console.error('[Gateway] Failed to fetch thread history:', error);
             return;
         }
 
@@ -478,7 +475,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                 }
                 return {
                     id: msg.id,
-                    channel_id: msg.channel_id,
+                    thread_id: msg.thread_id,
                     user_id: msg.user_id,
                     content: content,
                     created_at: msg.created_at,
@@ -489,13 +486,13 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             set(state => ({
                 messages: {
                     ...state.messages,
-                    [channelId]: decryptedMessages
+                    [threadId]: decryptedMessages
                 }
             }));
         }
     },
 
-    joinVoice: (channelId) => {
+    joinVoice: (threadId) => {
         const { user } = get();
         if (!user) return;
 
@@ -514,7 +511,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             }
         );
         rtcManager.getLocalStream();
-        set({ activeVoiceChannelId: channelId });
+        set({ activeVoiceThreadId: threadId });
 
         // Listen for signals
         supabase.channel('voice-signaling')
@@ -531,6 +528,6 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             rtcManager.leave();
             rtcManager = null;
         }
-        set({ activeVoiceChannelId: null, voicePeers: {} });
+        set({ activeVoiceThreadId: null, voicePeers: {} });
     }
 }));

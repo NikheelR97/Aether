@@ -2,11 +2,9 @@ import {
     KeyHelper,
     SessionBuilder,
     SessionCipher,
-    SignalProtocolAddress,
-    SignalProtocolStore,
-    // Types (aliased to any or specific types for store if needed)
-    IdentityKeyPair
+    SignalProtocolAddress
 } from '@privacyresearch/libsignal-protocol-typescript';
+export type IdentityKeyPair = { pubKey: ArrayBuffer; privKey: ArrayBuffer };
 
 // Define types locally if needed to silence TS about missing generics
 type SessionRecord = string;
@@ -14,7 +12,7 @@ type PreKeyRecord = any;
 type SignedPreKeyRecord = any;
 
 // Simple Persistent Store for Signal using LocalStorage
-export class PersistentSignalProtocolStore implements SignalProtocolStore {
+export class PersistentSignalProtocolStore {
     private identityKeyPair: IdentityKeyPair | undefined;
     private localRegistrationId: number | undefined;
     private sessions: { [key: string]: SessionRecord } = {};
@@ -22,7 +20,10 @@ export class PersistentSignalProtocolStore implements SignalProtocolStore {
     private signedPreKeys: { [key: string]: SignedPreKeyRecord } = {};
     private remoteIdentities: { [key: string]: ArrayBuffer } = {}; // Remote Public Keys
 
-    constructor(private readonly prefix: string = 'signal_store_') {
+    private prefix: string;
+
+    constructor(prefix: string = 'signal_store_') {
+        this.prefix = prefix;
         this.load();
     }
 
@@ -63,7 +64,7 @@ export class PersistentSignalProtocolStore implements SignalProtocolStore {
     }
 
     // Helper to handle ArrayBuffers in JSON
-    private replacer(key: string, value: any) {
+    private replacer(_key: string, value: any) {
         if (value instanceof ArrayBuffer) {
             return {
                 type: 'ArrayBuffer',
@@ -81,7 +82,7 @@ export class PersistentSignalProtocolStore implements SignalProtocolStore {
         return value;
     }
 
-    private reviver(key: string, value: any) {
+    private reviver(_key: string, value: any) {
         if (value && value.type === 'ArrayBuffer' && Array.isArray(value.data)) {
             return new Uint8Array(value.data).buffer;
         }
@@ -101,20 +102,20 @@ export class PersistentSignalProtocolStore implements SignalProtocolStore {
         }
 
         // rigorous validation
-        if (!(kp.pubKey instanceof ArrayBuffer)) {
+        if (!((kp.pubKey as any) instanceof ArrayBuffer)) {
             console.warn('[E2EE] public key is not ArrayBuffer, attempting fix...');
-            if (kp.pubKey instanceof Uint8Array) {
-                kp.pubKey = (kp.pubKey as Uint8Array).buffer;
+            if ((kp.pubKey as any) instanceof Uint8Array) {
+                kp.pubKey = ((kp.pubKey as any) as Uint8Array).buffer as ArrayBuffer;
             } else {
                 // Corrupted
                 console.error('[E2EE] Identity Public Key corrupted:', kp.pubKey);
                 return undefined;
             }
         }
-        if (!(kp.privKey instanceof ArrayBuffer)) {
+        if (!((kp.privKey as any) instanceof ArrayBuffer)) {
             console.warn('[E2EE] private key is not ArrayBuffer, attempting fix...');
-            if (kp.privKey instanceof Uint8Array) {
-                kp.privKey = (kp.privKey as Uint8Array).buffer;
+            if ((kp.privKey as any) instanceof Uint8Array) {
+                kp.privKey = ((kp.privKey as any) as Uint8Array).buffer as ArrayBuffer;
             } else {
                 console.error('[E2EE] Identity Private Key corrupted:', kp.privKey);
                 return undefined;
@@ -136,7 +137,7 @@ export class PersistentSignalProtocolStore implements SignalProtocolStore {
         return true;
     }
 
-    async isTrustedIdentity(identifier: string, identityKey: ArrayBuffer, direction: number): Promise<boolean> {
+    async isTrustedIdentity(identifier: string, identityKey: ArrayBuffer, _direction: number): Promise<boolean> {
         const existing = this.remoteIdentities[identifier];
         if (!existing) {
             return true; // TOFU (Trust On First Use)
@@ -291,10 +292,8 @@ export class PersistentSignalProtocolStore implements SignalProtocolStore {
 
 export class E2EEManager {
     private store: PersistentSignalProtocolStore;
-    private userId: string;
-
     constructor(userId: string) {
-        this.userId = userId;
+        // userId stored in store explicitly if needed
         this.store = new PersistentSignalProtocolStore(`signal_${userId}_`);
     }
 
@@ -449,7 +448,7 @@ export class E2EEManager {
             bodyBase64 = btoa(ciphertext.body);
         } else {
             // It's an ArrayBuffer
-            bodyBase64 = this.arrayBufferToBase64(ciphertext.body as ArrayBuffer);
+            bodyBase64 = this.arrayBufferToBase64(ciphertext.body as unknown as ArrayBuffer);
         }
 
         // Return simpler object for transport

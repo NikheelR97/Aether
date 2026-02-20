@@ -1,8 +1,8 @@
-# Aether Architecture 🏗️
+# Yapper Architecture 🏗️
 
 ## High-Level Overview
 
-Aether follows a **"Thick Client, Thin Server"** architecture. The server (Supabase) acts primarily as a dumb relay and storage for encrypted blobs. All business logic, decryption, and key management happen on the client device.
+Yapper follows a **"Thick Client, Thin Server"** architecture. The server (Supabase) acts primarily as a dumb relay and storage for encrypted blobs. All business logic, decryption, and key management happen on the client device.
 
 ```mermaid
 graph TD
@@ -68,7 +68,7 @@ Encrypted payloads.
 - `content` (Text, Encrypted Base64)
 - `nonce` (Text, IV/Metadata)
 - `user_id` (Sender)
-- `channel_id` (Context)
+- `thread_id` (Context)
 
 ## 🔄 CI/CD Pipeline
 

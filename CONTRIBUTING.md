@@ -1,11 +1,11 @@
-# Contributing to Aether 🤝
+# Contributing to Yapper 🤝
 
 We welcome contributions! Please follow these guidelines to ensure a smooth collaboration.
 
 ## Setup
 
 1. Fork the repository.
-2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/Aether.git`
+2. Clone your fork: `git clone https://github.com/YOUR_USERNAME/Yapper.git`
 3. Install dependencies: `cd client && npm install`
 4. Setup environment variables (see README).
 

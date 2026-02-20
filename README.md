@@ -1,10 +1,10 @@
-# Aether 🌌
+# Yapper 🚀
 
 ![Status](https://img.shields.io/badge/status-Alpha-orange)
-![CI](https://github.com/NikheelR97/Aether/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/NikheelR97/Yapper/actions/workflows/ci.yml/badge.svg)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
-**Aether** is a privacy-first, self-hosted communication platform designed to bridge the gap between the performance of desktop apps and the security of zero-knowledge architectures. Think "Discord, but YOU own the data."
+**Yapper** is a privacy-first, self-hosted communication platform designed to bridge the gap between the performance of desktop apps and the security of zero-knowledge architectures. Think "Discord, but YOU own the data."
 
 ## 🚀 Key Features
 
@@ -19,7 +19,7 @@
 
 - **Instant Messaging**: Powered by **Supabase Realtime** for sub-millisecond latency.
 - **Voice Chat**: Peer-to-Peer audio streaming using **WebRTC** (Mesh Topology) and **Opus** codec.
-- **Multi-Server Architecture**: Seamless navigation between Guilds and Channels.
+- **Multi-Server Architecture**: Seamless navigation between Pods and Threads.
 
 ### 💻 Modern Tech Stack
 
@@ -36,7 +36,7 @@ Detailed documentation is available in the [`docs/`](./docs) directory:
 
 - [**Wiki Home**](./docs/WIKI.md): Project overview and roadmap.
 - [**Architecture**](./docs/ARCHITECTURE.md): Deep dive into E2EE and system design.
-- [**Contributing**](./CONTRIBUTING.md): How to contribute to Aether.
+- [**Contributing**](./CONTRIBUTING.md): How to contribute to Yapper.
 
 ---
 
@@ -53,8 +53,8 @@ Detailed documentation is available in the [`docs/`](./docs) directory:
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/NikheelR97/Aether.git
-   cd Aether
+   git clone https://github.com/NikheelR97/Yapper.git
+   cd Yapper
    ```
 
 2. **Install Client Dependencies**

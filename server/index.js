@@ -14,7 +14,7 @@ const PORT = process.env.PORT || 3001;
 
 // HTTP Server
 app.get('/', (req, res) => {
-    res.send('Aether Holo-Gateway Online');
+    res.send('Yapper Holo-Gateway Online');
 });
 
 const server = http.createServer(app);

@@ -1,16 +1,16 @@
 import { useGatewayStore } from '../stores/gateway';
-import { Hash, Volume2, Mic, Headphones, PhoneOff, Lock, Plus, X } from 'lucide-react';
+import { Hash, Volume2, Mic, Headphones, PhoneOff, Plus } from 'lucide-react';
 import { useState } from 'react';
 
-export function ChannelList() {
+export function ThreadList() {
     const {
-        guilds,
-        currentGuildId,
-        currentChannelId,
-        selectChannel,
+        pods,
+        currentPodId,
+        currentThreadId,
+        selectThread,
         joinVoice,
         leaveVoice,
-        activeVoiceChannelId,
+        activeVoiceThreadId,
         voicePeers,
         user,
         startDMByUsername
@@ -19,12 +19,12 @@ export function ChannelList() {
     const [showDMInput, setShowDMInput] = useState(false);
     const [dmTargetId, setDmTargetId] = useState('');
 
-    const handleChannelClick = (channel: any) => {
-        if (channel.type === 2) {
-            if (activeVoiceChannelId === channel.id) return;
-            joinVoice(channel.id);
+    const handleThreadClick = (thread: any) => {
+        if (thread.type === 2) {
+            if (activeVoiceThreadId === thread.id) return;
+            joinVoice(thread.id);
         } else {
-            selectChannel(channel.id);
+            selectThread(thread.id);
         }
     };
 
@@ -37,27 +37,27 @@ export function ChannelList() {
     };
 
     // --- View 1: Home / DMs ---
-    if (!currentGuildId) {
-        // Aggregate DMs from all guilds (or a specific DM list if we had one, but currently they are mixed)
+    if (!currentPodId) {
+        // Aggregate DMs from all pods (or a specific DM list if we had one, but currently they are mixed)
         // Filter to only show DMs where the CURRENT USER is a participant.
-        const allDmChannels = guilds
-            .flatMap(g => g.channels)
+        const allDmThreads = pods
+            .flatMap(g => g.threads)
             .filter(c => (c.type === 1 || c.name.includes(':')) && (user?.id && c.name.includes(user.id)));
 
         // De-duplicate by ID just in case
-        const uniqueDmChannels = Array.from(new Map(allDmChannels.map(c => [c.id, c])).values());
+        const uniqueDmThreads = Array.from(new Map(allDmThreads.map(c => [c.id, c])).values());
 
-        const renderDMChannel = (channel: any) => {
-            const isActive = activeVoiceChannelId === channel.id || currentChannelId === channel.id;
-            let displayName = channel.name;
+        const renderDMThread = (thread: any) => {
+            const isActive = activeVoiceThreadId === thread.id || currentThreadId === thread.id;
+            let displayName = thread.name;
             if (user) {
-                const parts = channel.name.split(':');
+                const parts = thread.name.split(':');
                 const otherId = parts.find((id: string) => id !== user.id);
                 if (otherId) displayName = `User ${otherId.slice(0, 4)}...`;
             }
             return (
-                <div key={channel.id}
-                    onClick={() => selectChannel(channel.id)}
+                <div key={thread.id}
+                    onClick={() => selectThread(thread.id)}
                     className={`
                          flex items-center px-2 py-2 rounded-md cursor-pointer group transition-all
                          ${isActive ? 'bg-white/10 text-starlight' : 'text-dust hover:bg-white/5 hover:text-gray-200'}
@@ -109,10 +109,10 @@ export function ChannelList() {
                     )}
 
                     <div className="space-y-0.5">
-                        {uniqueDmChannels.length === 0 && !showDMInput && (
+                        {uniqueDmThreads.length === 0 && !showDMInput && (
                             <div className="text-center text-dust/50 text-xs py-10">No messages yet.</div>
                         )}
-                        {uniqueDmChannels.map(c => renderDMChannel(c))}
+                        {uniqueDmThreads.map(c => renderDMThread(c))}
                     </div>
                 </div>
 
@@ -137,22 +137,22 @@ export function ChannelList() {
         );
     }
 
-    // --- View 2: Guild Channels ---
-    const guild = guilds.find(g => g.id === currentGuildId);
-    if (!guild) return null;
+    // --- View 2: Pod Threads ---
+    const pod = pods.find(g => g.id === currentPodId);
+    if (!pod) return null;
 
-    // Filter Channels
-    const textChannels = guild.channels.filter(c => c.type === 0);
-    const voiceChannels = guild.channels.filter(c => c.type === 2);
-    // REMOVED: DMs from Guild View
+    // Filter Threads
+    const textThreads = pod.threads.filter(c => c.type === 0);
+    const voiceThreads = pod.threads.filter(c => c.type === 2);
+    // REMOVED: DMs from Pod View
 
-    const renderChannel = (channel: any, icon: any) => {
-        const isActive = activeVoiceChannelId === channel.id || currentChannelId === channel.id;
+    const renderThread = (thread: any, icon: any) => {
+        const isActive = activeVoiceThreadId === thread.id || currentThreadId === thread.id;
 
         return (
-            <div key={channel.id}>
+            <div key={thread.id}>
                 <div
-                    onClick={() => handleChannelClick(channel)}
+                    onClick={() => handleThreadClick(thread)}
                     className={`
                         flex items-center px-2 py-1.5 rounded-md cursor-pointer group transition-all
                         ${isActive ? 'bg-white/10 text-starlight' : 'text-dust hover:bg-white/5 hover:text-gray-200'}
@@ -160,11 +160,11 @@ export function ChannelList() {
                 >
                     {icon}
                     <span className={`text-sm ${isActive ? 'font-medium' : 'font-normal'} truncate`}>
-                        {channel.name}
+                        {thread.name}
                     </span>
                 </div>
                 {/* Voice Users Logic */}
-                {channel.type === 2 && isActive && (
+                {thread.type === 2 && isActive && (
                     <div className="pl-8 py-1 space-y-1">
                         <div className="flex items-center gap-2 group cursor-pointer">
                             <div className="w-5 h-5 rounded-full bg-nebula flex items-center justify-center text-[8px] text-void font-bold shadow-sm shadow-nebula/50">ME</div>
@@ -187,35 +187,35 @@ export function ChannelList() {
         <div className="w-60 bg-cosmic/30 backdrop-blur-md flex flex-col border-r border-cosmic">
             {/* Header */}
             <div className="h-12 border-b border-cosmic flex items-center px-4 font-bold text-starlight tracking-wide shadow-sm hover:bg-white/5 transition-colors cursor-pointer">
-                {guild.name}
+                {pod.name}
             </div>
 
-            {/* Channels List */}
+            {/* Threads List */}
             <div className="flex-1 overflow-y-auto p-2 space-y-4">
 
-                {/* Section: Text Channels */}
+                {/* Section: Text Threads */}
                 <div>
                     <div className="px-2 text-[10px] font-bold text-dust/70 uppercase tracking-widest mb-1 flex items-center">
-                        Text Channels
+                        Text Threads
                     </div>
                     <div className="space-y-0.5">
-                        {textChannels.map(c => renderChannel(c, <Hash className="w-4 h-4 mr-2 opacity-50" />))}
+                        {textThreads.map(c => renderThread(c, <Hash className="w-4 h-4 mr-2 opacity-50" />))}
                     </div>
                 </div>
 
-                {/* Section: Voice Channels */}
+                {/* Section: Voice Threads */}
                 <div>
                     <div className="px-2 text-[10px] font-bold text-dust/70 uppercase tracking-widest mb-1 flex items-center">
-                        Voice Channels
+                        Voice Threads
                     </div>
                     <div className="space-y-0.5">
-                        {voiceChannels.map(c => renderChannel(c, <Volume2 className="w-4 h-4 mr-2 opacity-50" />))}
+                        {voiceThreads.map(c => renderThread(c, <Volume2 className="w-4 h-4 mr-2 opacity-50" />))}
                     </div>
                 </div>
             </div>
 
             {/* Voice Status & User Bar (Preserved) */}
-            {activeVoiceChannelId && (
+            {activeVoiceThreadId && (
                 <div className="bg-void/80 border-t border-cosmic p-2">
                     <div className="flex items-center justify-between mb-1">
                         <div className="text-green-400 text-xs font-bold flex items-center gap-1">
@@ -225,7 +225,7 @@ export function ChannelList() {
                         <div className="text-[10px] text-dust/50 font-mono">WebRTC Mesh</div>
                     </div>
                     <div className="text-starlight text-sm font-medium truncate">
-                        {guild.channels.find(c => c.id === activeVoiceChannelId)?.name || 'Unknown Channel'}
+                        {pod.threads.find(c => c.id === activeVoiceThreadId)?.name || 'Unknown Thread'}
                     </div>
                     <div className="flex gap-2 mt-2">
                         <button

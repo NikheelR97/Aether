@@ -1,8 +1,8 @@
-# Aether 🌌
+# Yapper 🚀
 
-**Aether** is a privacy-first, self-hosted communication platform designed to bridge the gap between the performance of desktop apps and the security of zero-knowledge architectures. It essentially functions as a "Private Discord" where YOU own the data.
+**Yapper** is a privacy-first, self-hosted communication platform designed to bridge the gap between the performance of desktop apps and the security of zero-knowledge architectures. It essentially functions as a "Private Discord" where YOU own the data.
 
-![Aether UI](https://via.placeholder.com/800x450?text=Aether+Dashboard+Preview)
+![Yapper UI](https://via.placeholder.com/800x450?text=Yapper+Dashboard+Preview)
 
 ## 🚀 Key Features
 
@@ -16,7 +16,7 @@
 
 - **Instant Messaging**: Powered by **Supabase Realtime** for sub-millisecond latency.
 - **Voice Chat**: Peer-to-Peer audio streaming using **WebRTC** (Mesh Topology) and **Opus** codec.
-- **Multi-Server Architecture**: Seamlessly switch between different "Guilds" (Servers) and Channels.
+- **Multi-Server Architecture**: Seamlessly switch between different "Pods" (Servers) and Threads.
 
 ### 💻 Modern Tech Stack
 
