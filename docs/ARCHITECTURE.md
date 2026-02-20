@@ -6,9 +6,9 @@ Aether follows a **"Thick Client, Thin Server"** architecture. The server (Supab
 
 ```mermaid
 graph TD
-    Client[Client (Tauri/React)]
-    Supabase[Supabase (PostgreSQL + Realtime)]
-    Peer[Peer Client]
+    Client["Client (Tauri/React)"]
+    Supabase["Supabase (PostgreSQL + Realtime)"]
+    Peer["Peer Client"]
 
     Client <-->|Encrypted Data| Supabase
     Client <-->|WebRTC (Voice)| Peer
