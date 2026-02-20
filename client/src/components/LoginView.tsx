@@ -48,8 +48,8 @@ export function LoginView() {
             }
             // Store will detect session change via listener (todo) or refresh
             window.location.reload();
-        } catch (err: any) {
-            setError(err.message);
+        } catch (err: unknown) {
+            setError(err instanceof Error ? err.message : 'An unknown error occurred');
         } finally {
             setLoading(false);
         }

@@ -53,6 +53,7 @@ interface GatewayState {
     leaveVoice: () => void;
 
     // E2EE / DMs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     getPeerKeys: (userId: string) => Promise<any>;
     startDM: (targetUserId: string) => Promise<void>;
     startDMByUsername: (username: string) => Promise<void>;
@@ -79,7 +80,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
 
         // 1. Auth
         const { data: { session } } = await supabase.auth.getSession();
-        let currentUser = session?.user;
+        const currentUser = session?.user;
 
         if (!currentUser) {
             console.log('[Supabase] No session. Waiting for login UI.');
@@ -128,7 +129,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                 id: g.id,
                 name: g.name,
                 icon_url: g.icon_url,
-                threads: g.threads.map((c: any) => ({
+                threads: g.threads.map((c: Record<string, unknown>) => ({
                     id: c.id,
                     pod_id: c.pod_id,
                     name: c.name,
@@ -158,7 +159,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'messages' },
                 async (payload) => {
-                    const newMessage = payload.new as any;
+                    const newMessage = payload.new as Record<string, string>;
                     let content = newMessage.content;
 
                     // Ignore own messages to preserve Local Echo (plaintext)
@@ -336,15 +337,13 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
         let finalContent = content;
         // Check Thread Type
         // We need to find the thread object to check its type
-        let threadType = 0;
         // Naively search all pods
         for (const g of pods) {
             const c = g.threads.find(ch => ch.id === currentThreadId);
             if (c) {
-                threadType = c.type;
 
                 // If DM (Type 1), Encrypt!
-                if (threadType === 1 || c.name.includes(':')) {
+                if (c.type === 1 || c.name.includes(':')) {
                     // Extract Recipient ID from name "id1:id2"
                     const parts = c.name.split(':');
                     const recipientId = parts.find(id => id !== user.id);
@@ -382,9 +381,9 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                                 content,
                                 () => get().getPeerKeys(user.id) // Fetcher for self keys
                             );
-                        } catch (err: any) {
+                        } catch (err: unknown) {
                             console.error('[E2EE] Failed to encrypt for SELF:', err);
-                            alert(`Encryption failed (Self): ${err.message || err}. Try reloading.`);
+                            alert(`Encryption failed (Self): ${err instanceof Error ? err.message : err}. Try reloading.`);
                             // cleanup local echo
                             set(state => ({
                                 messages: {
@@ -479,7 +478,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
                     user_id: msg.user_id,
                     content: content,
                     created_at: msg.created_at,
-                    author: msg.author as any
+                    author: msg.author as User | undefined
                 };
             }));
 

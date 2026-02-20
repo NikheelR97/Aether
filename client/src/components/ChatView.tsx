@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { useGatewayStore } from '../stores/gateway';
 import { Send } from 'lucide-react';
 
@@ -29,7 +29,7 @@ export function ChatView() {
     }
 
     // 2. Prepare Data & Handlers (Hooks dependent or otherwise)
-    const threadMessages = currentThreadId ? (messages[currentThreadId] || []) : [];
+    const threadMessages = useMemo(() => currentThreadId ? (messages[currentThreadId] || []) : [], [currentThreadId, messages]);
 
     // 3. Hooks (MUST be unconditional)
     useEffect(() => {
@@ -111,14 +111,14 @@ export function ChatView() {
                 )}
 
                 {threadMessages.map((msg) => (
-                    <div key={msg.id || Math.random()} className="flex gap-4 group hover:bg-white/5 p-2 rounded -mx-2 transition-colors">
+                    <div key={msg.id || `msg-${msg.created_at}`} className="flex gap-4 group hover:bg-white/5 p-2 rounded -mx-2 transition-colors">
                         <div className="w-10 h-10 rounded-full bg-cosmic mt-1 flex-shrink-0 flex items-center justify-center text-xl overflow-hidden">
                             {msg.author?.avatar_url ? <img src={msg.author.avatar_url} alt={msg.author.username} /> : '👤'}
                         </div>
                         <div className="min-w-0 flex-1">
                             <div className="flex items-baseline gap-2">
                                 <span className="text-starlight font-medium text-sm hover:underline cursor-pointer">{msg.author?.username || 'Unknown'}</span>
-                                <span className="text-[10px] text-dust opacity-50">{new Date(msg.created_at || Date.now()).toLocaleTimeString()}</span>
+                                <span className="text-[10px] text-dust opacity-50">{new Date(msg.created_at || 0).toLocaleTimeString()}</span>
                             </div>
                             <p className="text-gray-300 text-sm mt-1 whitespace-pre-wrap break-words">
                                 {msg.content}

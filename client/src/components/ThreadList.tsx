@@ -19,7 +19,7 @@ export function ThreadList() {
     const [showDMInput, setShowDMInput] = useState(false);
     const [dmTargetId, setDmTargetId] = useState('');
 
-    const handleThreadClick = (thread: any) => {
+    const handleThreadClick = (thread: { id: string; type: number; name: string }) => {
         if (thread.type === 2) {
             if (activeVoiceThreadId === thread.id) return;
             joinVoice(thread.id);
@@ -47,7 +47,7 @@ export function ThreadList() {
         // De-duplicate by ID just in case
         const uniqueDmThreads = Array.from(new Map(allDmThreads.map(c => [c.id, c])).values());
 
-        const renderDMThread = (thread: any) => {
+        const renderDMThread = (thread: { id: string; name: string; type: number }) => {
             const isActive = activeVoiceThreadId === thread.id || currentThreadId === thread.id;
             let displayName = thread.name;
             if (user) {
@@ -146,7 +146,7 @@ export function ThreadList() {
     const voiceThreads = pod.threads.filter(c => c.type === 2);
     // REMOVED: DMs from Pod View
 
-    const renderThread = (thread: any, icon: any) => {
+    const renderThread = (thread: { id: string; name: string; type: number }, icon: React.ReactNode) => {
         const isActive = activeVoiceThreadId === thread.id || currentThreadId === thread.id;
 
         return (

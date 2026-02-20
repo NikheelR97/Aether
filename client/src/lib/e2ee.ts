@@ -8,7 +8,9 @@ export type IdentityKeyPair = { pubKey: ArrayBuffer; privKey: ArrayBuffer };
 
 // Define types locally if needed to silence TS about missing generics
 type SessionRecord = string;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type PreKeyRecord = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SignedPreKeyRecord = any;
 
 // Simple Persistent Store for Signal using LocalStorage
@@ -63,8 +65,8 @@ export class PersistentSignalProtocolStore {
         localStorage.setItem(this.prefix + 'data', JSON.stringify(data, this.replacer));
     }
 
-    // Helper to handle ArrayBuffers in JSON
-    private replacer(_key: string, value: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private replacer(_key: string, value: any): unknown {
         if (value instanceof ArrayBuffer) {
             return {
                 type: 'ArrayBuffer',
@@ -82,7 +84,8 @@ export class PersistentSignalProtocolStore {
         return value;
     }
 
-    private reviver(_key: string, value: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    private reviver(_key: string, value: any): unknown {
         if (value && value.type === 'ArrayBuffer' && Array.isArray(value.data)) {
             return new Uint8Array(value.data).buffer;
         }
@@ -102,20 +105,20 @@ export class PersistentSignalProtocolStore {
         }
 
         // rigorous validation
-        if (!((kp.pubKey as any) instanceof ArrayBuffer)) {
+        if (!((kp.pubKey as unknown) instanceof ArrayBuffer)) {
             console.warn('[E2EE] public key is not ArrayBuffer, attempting fix...');
-            if ((kp.pubKey as any) instanceof Uint8Array) {
-                kp.pubKey = ((kp.pubKey as any) as Uint8Array).buffer as ArrayBuffer;
+            if ((kp.pubKey as unknown) instanceof Uint8Array) {
+                kp.pubKey = ((kp.pubKey as unknown) as Uint8Array).buffer as ArrayBuffer;
             } else {
                 // Corrupted
                 console.error('[E2EE] Identity Public Key corrupted:', kp.pubKey);
                 return undefined;
             }
         }
-        if (!((kp.privKey as any) instanceof ArrayBuffer)) {
+        if (!((kp.privKey as unknown) instanceof ArrayBuffer)) {
             console.warn('[E2EE] private key is not ArrayBuffer, attempting fix...');
-            if ((kp.privKey as any) instanceof Uint8Array) {
-                kp.privKey = ((kp.privKey as any) as Uint8Array).buffer as ArrayBuffer;
+            if ((kp.privKey as unknown) instanceof Uint8Array) {
+                kp.privKey = ((kp.privKey as unknown) as Uint8Array).buffer as ArrayBuffer;
             } else {
                 console.error('[E2EE] Identity Private Key corrupted:', kp.privKey);
                 return undefined;
@@ -137,7 +140,8 @@ export class PersistentSignalProtocolStore {
         return true;
     }
 
-    async isTrustedIdentity(identifier: string, identityKey: ArrayBuffer, _direction: number): Promise<boolean> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    async isTrustedIdentity(identifier: string, identityKey: ArrayBuffer, _direction?: number): Promise<boolean> {
         const existing = this.remoteIdentities[identifier];
         if (!existing) {
             return true; // TOFU (Trust On First Use)
@@ -182,9 +186,9 @@ export class PersistentSignalProtocolStore {
     async storeSession(identifier: string, record: SessionRecord): Promise<void> {
         // console.log('[E2EE] storeSession', identifier, typeof record);
         // If record has a serialize method, use it? The types say it's a string, but let's be sure.
-        if (typeof record !== 'string' && record && typeof (record as any).serialize === 'function') {
+        if (typeof record !== 'string' && record && typeof (record as unknown as Record<string, unknown>).serialize === 'function') {
             console.log('[E2EE] storeSession: Record IS an object with serialize(). converting...');
-            this.sessions[identifier] = (record as any).serialize();
+            this.sessions[identifier] = (record as unknown as { serialize: () => string }).serialize();
         } else {
             this.sessions[identifier] = record;
         }
@@ -358,7 +362,7 @@ export class E2EEManager {
         const identityKeyPair = await KeyHelper.generateIdentityKeyPair();
 
         console.log('[E2EE] Generated IdentityKeyPair:', identityKeyPair);
-        if ((identityKeyPair as any).byteLength) {
+        if ((identityKeyPair as unknown as ArrayBuffer).byteLength) {
             console.error('[E2EE] Generatred KeyPair IS an ArrayBuffer!', identityKeyPair);
         } else {
             console.log('[E2EE] KeyPair keys:', Object.keys(identityKeyPair));
@@ -409,7 +413,8 @@ export class E2EEManager {
     // --- Encryption Logic ---
 
     // Encrypt a message for a specific recipient (Signal Protocol)
-    async encryptMessage(recipientId: string, message: string, getRecipientKeys: () => Promise<any>): Promise<any> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    async encryptMessage(recipientId: string, message: string, getRecipientKeys: () => Promise<any>): Promise<{ type: number; body: string }> {
         const address = new SignalProtocolAddress(recipientId, 1);
         const sessionBuilder = new SessionBuilder(this.store, address);
 
@@ -459,7 +464,7 @@ export class E2EEManager {
     }
 
     // Decrypt an incoming message
-    async decryptMessage(senderId: string, ciphertext: any): Promise<string> {
+    async decryptMessage(senderId: string, ciphertext: { type: number; body: string }): Promise<string> {
         const address = new SignalProtocolAddress(senderId, 1);
         const cipher = new SessionCipher(this.store, address);
 
@@ -480,13 +485,14 @@ export class E2EEManager {
                 );
             }
             return new TextDecoder().decode(plaintextBuffer);
-        } catch (e: any) {
-            console.warn(`[E2EE] Decryption failed for sender ${senderId}:`, e.message);
+        } catch (e: unknown) {
+            const errorMessage = e instanceof Error ? e.message : String(e);
+            console.warn(`[E2EE] Decryption failed for sender ${senderId}:`, errorMessage);
 
             // Self-Healing logic
-            const isCriticalError = e.message.includes('Invalid private key') ||
-                e.message.includes('Incompatible version') ||
-                e.message.includes('No record for device');
+            const isCriticalError = errorMessage.includes('Invalid private key') ||
+                errorMessage.includes('Incompatible version') ||
+                errorMessage.includes('No record for device');
 
             if (isCriticalError) {
                 // Prevent infinite loops: check if we just deleted this session recently?
@@ -496,7 +502,7 @@ export class E2EEManager {
                 // However, for history, we might want to just swallow the error if the session is ALREADY gone.
                 const sessionExists = await this.store.loadSession(address.toString());
                 if (sessionExists) {
-                    console.warn(`[E2EE] Session for ${senderId} appears corrupted (${e.message}). Deleting to force renegotiation.`);
+                    console.warn(`[E2EE] Session for ${senderId} appears corrupted (${errorMessage}). Deleting to force renegotiation.`);
                     await this.store.deleteSession(address.toString());
                 } else {
                     console.warn(`[E2EE] Session for ${senderId} already missing. Ignoring old message failure.`);
