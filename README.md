@@ -1,29 +1,42 @@
 # Aether 🌌
 
-**Aether** is a privacy-first, self-hosted communication platform designed to bridge the gap between the performance of desktop apps and the security of zero-knowledge architectures. It essentially functions as a "Private Discord" where YOU own the data.
+![Status](https://img.shields.io/badge/status-Alpha-orange)
+![CI](https://github.com/NikheelR97/Aether/actions/workflows/ci.yml/badge.svg)
+![License](https://img.shields.io/badge/license-MIT-blue)
 
-![Aether UI](https://via.placeholder.com/800x450?text=Aether+Dashboard+Preview)
+**Aether** is a privacy-first, self-hosted communication platform designed to bridge the gap between the performance of desktop apps and the security of zero-knowledge architectures. Think "Discord, but YOU own the data."
 
 ## 🚀 Key Features
 
-### 🔒 Privacy & Security (Zero-Knowledge)
+### 🔒 Zero-Knowledge Privacy (E2EE 2.0)
 
-- **End-to-End Encryption (E2EE)**: Built on the **Signal Protocol** (Double Ratchet, X3DH). Messages are encrypted on your device and can only be read by the intended recipient.
-- **Dual Encryption**: Sender visibility is achieved by encrypting outgoing messages for *both* the recipient and the sender's own other devices.
-- **Self-Healing Identity**: Automated session management that detects and repairs corrupted cryptographic states.
+- **Signal Protocol**: Implementation of Double Ratchet & X3DH for asynchronous messaging.
+- **Dual Encryption**: Messages are encrypted for **both** the recipient and sender's other devices (Self-Visibility).
+- **Self-Healing Identity**: Automated session repair for corrupted cryptographic states.
+- **Strict CSP**: Client-side protection against XSS and data exfiltration.
 
 ### 🎙️ Real-Time Communication
 
 - **Instant Messaging**: Powered by **Supabase Realtime** for sub-millisecond latency.
 - **Voice Chat**: Peer-to-Peer audio streaming using **WebRTC** (Mesh Topology) and **Opus** codec.
-- **Multi-Server Architecture**: Seamlessly switch between different "Guilds" (Servers) and Channels.
+- **Multi-Server Architecture**: Seamless navigation between Guilds and Channels.
 
 ### 💻 Modern Tech Stack
 
-- **Frontend**: React (TypeScript) + Vite + Tailwind CSS v4.
-- **Backend Service**: Supabase (PostgreSQL, Auth, Realtime).
-- **Desktop Runtime**: **Tauri** (Rust) - *In Progress*.
-- **Compatibility**: Partial Discord Gateway emulation (Holo-Gateway) to support existing bots.
+- **Frontend**: React 19 (TypeScript) + Vite + Tailwind CSS v4.
+- **Backend**: Supabase (PostgreSQL 15, Auth, Realtime).
+- **Desktop Runtime**: Tauri v2 (Rust).
+- **Testing**: Vitest (Unit), Playwright (E2E), Sentry (Monitoring).
+
+---
+
+## 📚 Documentation
+
+Detailed documentation is available in the [`docs/`](./docs) directory:
+
+- [**Wiki Home**](./docs/WIKI.md): Project overview and roadmap.
+- [**Architecture**](./docs/ARCHITECTURE.md): Deep dive into E2EE and system design.
+- [**Contributing**](./CONTRIBUTING.md): How to contribute to Aether.
 
 ---
 
@@ -39,17 +52,17 @@
 
 1. **Clone the repository**
 
-    ```bash
-    git clone https://github.com/NikheelR97/RTC-FreeChat.git
-    cd RTC-FreeChat
-    ```
+   ```bash
+   git clone https://github.com/NikheelR97/Aether.git
+   cd Aether
+   ```
 
 2. **Install Client Dependencies**
 
-    ```bash
-    cd client
-    npm install
-    ```
+   ```bash
+   cd client
+   npm install
+   ```
 
 3. **Environment Setup**
     Create a `.env` file in the `client` directory:
@@ -57,6 +70,7 @@
     ```env
     VITE_SUPABASE_URL=your_supabase_url
     VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
+    VITE_SENTRY_DSN=your_sentry_dsn
     ```
 
 4. **Run Development Server**
@@ -65,34 +79,23 @@
     npm run dev
     ```
 
+5. **Run Tests**
+
+    ```bash
+    npm test          # Unit Tests (Vitest)
+    npx playwright test # E2E Tests
+    ```
+
 ---
 
-## 🏗️ Architecture
+## 🗺️ Roadmap
 
-```mermaid
-graph TD
-    User[User Client] -->|E2EE Encrypted Data| Supabase[Supabase DB]
-    User -->|P2P Voice| Peer[Peer Client]
-    Supabase -->|Realtime Events| User
-    
-    subgraph Client [Tauri / Browser]
-        React[React UI]
-        Signal[Signal Protocol Store]
-        Local[LocalStorage (Keys)]
-    end
-    
-    React --> Signal
-    Signal --> Local
-```
+- **Phase 1-6**: Core Infrastructure, E2EE, Voice, Reliability (Done) ✅
+- **Phase 7**: Encrypted File Sharing & Offline Support (Next) 🚧
+- **Phase 8**: Compliance & Trust (GDPR) 📅
+- **Phase 9**: Mobile App 📱
 
-## 🤝 Contributing
-
-This project is currently in **Alpha**.
-
-- **Phase 1**: Blueprint & Architecture (Done)
-- **Phase 2**: Core Infrastructure (Done)
-- **Phase 3**: Client Development (Active)
-- **Phase 4**: Mobile Port (Planned)
+---
 
 ## 📄 License
 
