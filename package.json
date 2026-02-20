@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "trufflehog": "^0.0.5"
+  }
+}

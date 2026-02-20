@@ -14,7 +14,7 @@ type PreKeyRecord = any;
 type SignedPreKeyRecord = any;
 
 // Simple Persistent Store for Signal using LocalStorage
-class PersistentSignalProtocolStore implements SignalProtocolStore {
+export class PersistentSignalProtocolStore implements SignalProtocolStore {
     private identityKeyPair: IdentityKeyPair | undefined;
     private localRegistrationId: number | undefined;
     private sessions: { [key: string]: SessionRecord } = {};
