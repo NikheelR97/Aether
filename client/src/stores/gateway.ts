@@ -40,6 +40,7 @@ interface GatewayState {
     messages: Record<string, Message[]>; // threadId -> messages
     currentPodId: string | null;
     currentThreadId: string | null;
+    connecting: boolean;
 
     connect: () => Promise<void>;
     selectPod: (podId: string | null) => void;
@@ -74,160 +75,197 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
     // Voice
     activeVoiceThreadId: null,
     voicePeers: {},
+    connecting: false,
 
     connect: async () => {
-        if (get().connected) return;
+        try {
+            if (get().connected || get().connecting) return;
+            set({ connecting: true });
 
-        // 1. Auth
-        const { data: { session } } = await supabase.auth.getSession();
-        const currentUser = session?.user;
+            // 1. Auth
+            const { data: { session } } = await supabase.auth.getSession();
+            const currentUser = session?.user;
 
-        if (!currentUser) {
-            console.log('[Supabase] No session. Waiting for login UI.');
-            return;
-        }
+            if (!currentUser) {
+                console.log('[Supabase] No session. Waiting for login UI.');
+                return;
+            }
 
-        // Fetch Profile
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', currentUser.id)
-            .single();
+            // Fetch Profile
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('id', currentUser.id)
+                .single();
 
-        if (profile) {
-            set({
-                user: { id: profile.id, username: profile.username, avatar_url: profile.avatar_url },
-                connected: true
-            });
-
-            // --- Initialize E2EE ---
-            e2eeManager = new E2EEManager(profile.id);
-            const publicBundle = await e2eeManager.initialize();
-
-            // Upload Keys (Upsert)
-            const { error: keyError } = await supabase
-                .from('user_keys')
-                .upsert({
-                    user_id: profile.id,
-                    ...publicBundle
-                });
-
-            if (keyError) console.error('[E2EE] Failed to upload keys:', keyError);
-            else console.log('[E2EE] Keys uploaded successfully');
-        }
-
-        // 2. Load Pods & Threads
-        const { data: podsData, error: podsError } = await supabase
-            .from('pods')
-            .select('*, threads(*)');
-
-        if (podsError) {
-            console.error('[Supabase] Failed to fetch pods:', podsError);
-        } else if (podsData) {
-            // Transform to match interface if needed (Supabase returns simpler structure)
-            const formattedPods: Pod[] = podsData.map(g => ({
-                id: g.id,
-                name: g.name,
-                icon_url: g.icon_url,
-                threads: g.threads.map((c: Record<string, unknown>) => ({
-                    id: c.id,
-                    pod_id: c.pod_id,
-                    name: c.name,
-                    type: c.type
-                })).sort((a: Thread, b: Thread) => a.type - b.type) // Text (0) before Voice (2)
-            }));
-
-            set({ pods: formattedPods });
-
-            // Select Default (First Pod, First Thread)
-            if (formattedPods.length > 0) {
-                const firstPod = formattedPods[0];
-                const firstThread = firstPod.threads[0];
+            if (profile) {
                 set({
-                    currentPodId: firstPod.id,
-                    currentThreadId: firstThread ? firstThread.id : null
+                    user: { id: profile.id, username: profile.username, avatar_url: profile.avatar_url },
+                    connected: true
                 });
-                if (firstThread) {
-                    get().selectThread(firstThread.id);
+
+                // --- Initialize E2EE ---
+                e2eeManager = new E2EEManager(profile.id);
+                const publicBundle = await e2eeManager.initialize();
+
+                // Upload Keys (Upsert)
+                const { error: keyError } = await supabase
+                    .from('user_keys')
+                    .upsert({
+                        user_id: profile.id,
+                        ...publicBundle
+                    });
+
+                if (keyError) console.error('[E2EE] Failed to upload keys:', keyError);
+                else console.log('[E2EE] Keys uploaded successfully');
+            }
+
+            // 2. Load Pods & Threads
+            const { data: podsData, error: podsError } = await supabase
+                .from('pods')
+                .select('*, threads(*)');
+
+            if (podsError) {
+                console.error('[Supabase] Failed to fetch pods:', podsError);
+            } else if (podsData) {
+                // Transform to match interface if needed (Supabase returns simpler structure)
+                const formattedPods: Pod[] = podsData.map(g => ({
+                    id: g.id,
+                    name: g.name,
+                    icon_url: g.icon_url,
+                    threads: g.threads.map((c: Record<string, unknown>) => ({
+                        id: c.id,
+                        pod_id: c.pod_id,
+                        name: c.name,
+                        type: c.type
+                    })).sort((a: Thread, b: Thread) => a.type - b.type) // Text (0) before Voice (2)
+                }));
+
+                set({ pods: formattedPods });
+
+                // Select Default (First Pod, First Thread)
+                if (formattedPods.length > 0) {
+                    const firstPod = formattedPods[0];
+                    const firstThread = firstPod.threads[0];
+                    set({
+                        currentPodId: firstPod.id,
+                        currentThreadId: firstThread ? firstThread.id : null
+                    });
+                    if (firstThread) {
+                        get().selectThread(firstThread.id);
+                    }
                 }
             }
-        }
 
-        // 3. Subscribe to Messages (Realtime)
-        supabase.channel('room-1')
-            .on(
-                'postgres_changes',
-                { event: 'INSERT', schema: 'public', table: 'messages' },
-                async (payload) => {
-                    const newMessage = payload.new as Record<string, string>;
-                    let content = newMessage.content;
+            // 3. Subscribe to Messages (Realtime)
+            supabase.channel('room-1')
+                .on(
+                    'postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'messages' },
+                    async (payload) => {
+                        const newMessage = payload.new as Record<string, string>;
+                        let content = newMessage.content;
 
-                    // Ignore own messages to preserve Local Echo (plaintext)
-                    // If we process our own message here, we can't decrypt it (as we didn't encrypt for self),
-                    // so it would overwrite our nice plaintext local echo with "🔒 You sent...".
-                    if (newMessage.user_id === get().user?.id) {
-                        return;
-                    }
+                        // Ignore own messages to preserve Local Echo (plaintext)
+                        // If we process our own message here, we can't decrypt it (as we didn't encrypt for self),
+                        // so it would overwrite our nice plaintext local echo with "🔒 You sent...".
+                        if (newMessage.user_id === get().user?.id) {
+                            return;
+                        }
 
-                    // Decryption Check
-                    try {
-                        if (content.startsWith('{') && content.includes('"e2ee":true')) {
-                            const json = JSON.parse(content);
-                            if (e2eeManager) {
-                                let targetCipher = json;
+                        // Decryption Check
+                        try {
+                            if (content.startsWith('{') && content.includes('"e2ee":true')) {
+                                const json = JSON.parse(content);
+                                if (e2eeManager) {
+                                    let targetCipher = json;
 
-                                // Check for Dual Encryption format
-                                if (json.dual) {
-                                    // If I am the author (e.g. from another tab), use 'sender' payload
-                                    if (newMessage.user_id === get().user?.id) {
-                                        targetCipher = json.sender;
-                                    } else {
-                                        targetCipher = json.recipient;
+                                    // Check for Dual Encryption format
+                                    if (json.dual) {
+                                        // If I am the author (e.g. from another tab), use 'sender' payload
+                                        if (newMessage.user_id === get().user?.id) {
+                                            targetCipher = json.sender;
+                                        } else {
+                                            targetCipher = json.recipient;
+                                        }
                                     }
-                                }
 
-                                if (targetCipher) {
-                                    content = await e2eeManager.decryptMessage(newMessage.user_id, targetCipher);
+                                    if (targetCipher) {
+                                        content = await e2eeManager.decryptMessage(newMessage.user_id, targetCipher);
+                                    }
+                                } else {
+                                    content = "🔒 Encrypted Message (Key Unavailable)";
                                 }
-                            } else {
-                                content = "🔒 Encrypted Message (Key Unavailable)";
                             }
+                        } catch (err) {
+                            console.error('[E2EE] Realtime Decrypt Error:', err);
+                            content = "🔒 Decryption Error";
                         }
-                    } catch (err) {
-                        console.error('[E2EE] Realtime Decrypt Error:', err);
-                        content = "🔒 Decryption Error";
+
+                        // Fetch author info (naive, should cache)
+                        const { data: authorProfile } = await supabase
+                            .from('profiles')
+                            .select('*')
+                            .eq('id', newMessage.user_id)
+                            .single();
+
+                        const messageWithAuthor: Message = {
+                            id: newMessage.id,
+                            thread_id: newMessage.thread_id,
+                            user_id: newMessage.user_id,
+                            content: content,
+                            created_at: newMessage.created_at,
+                            author: authorProfile || { id: 'unknown', username: 'Unknown', avatar_url: null }
+                        };
+
+                        set((state) => ({
+                            messages: {
+                                ...state.messages,
+                                [newMessage.thread_id]: [...(state.messages[newMessage.thread_id] || []), messageWithAuthor]
+                            }
+                        }));
                     }
+                )
+                .on(
+                    'postgres_changes',
+                    { event: 'INSERT', schema: 'public', table: 'threads' },
+                    (payload) => {
+                        const newThread = payload.new as any;
+                        console.log('[Supabase] New thread detected via Realtime:', newThread.name);
+                        set(state => {
+                            const pod = state.pods.find(p => p.id === newThread.pod_id);
+                            if (!pod) return state;
 
-                    // Fetch author info (naive, should cache)
-                    const { data: authorProfile } = await supabase
-                        .from('profiles')
-                        .select('*')
-                        .eq('id', newMessage.user_id)
-                        .single();
+                            if (pod.threads.some(t => t.id === newThread.id)) return state;
 
-                    const messageWithAuthor: Message = {
-                        id: newMessage.id,
-                        thread_id: newMessage.thread_id,
-                        user_id: newMessage.user_id,
-                        content: content,
-                        created_at: newMessage.created_at,
-                        author: authorProfile || { id: 'unknown', username: 'Unknown', avatar_url: null }
-                    };
+                            const threadObj: Thread = {
+                                id: newThread.id,
+                                pod_id: newThread.pod_id,
+                                name: newThread.name,
+                                type: newThread.type
+                            };
 
-                    set((state) => ({
-                        messages: {
-                            ...state.messages,
-                            [newMessage.thread_id]: [...(state.messages[newMessage.thread_id] || []), messageWithAuthor]
-                        }
-                    }));
-                }
-            )
-            .subscribe((status) => {
-                if (status === 'SUBSCRIBED') {
-                    console.log('[Supabase] Realtime Connected');
-                    set({ connected: true });
-                }
-            });
+                            return {
+                                pods: state.pods.map(p =>
+                                    p.id === newThread.pod_id
+                                        ? { ...p, threads: [...p.threads, threadObj].sort((a, b) => a.type - b.type) }
+                                        : p
+                                )
+                            };
+                        });
+                    }
+                )
+                .subscribe((status) => {
+                    if (status === 'SUBSCRIBED') {
+                        console.log('[Supabase] Realtime Connected');
+                        set({ connected: true });
+                    }
+                });
+        } catch (err) {
+            console.error('[Gateway] Fatal connection error:', err);
+        } finally {
+            set({ connecting: false });
+        }
     },
 
     // Helper: Fetch Peer Keys
@@ -255,7 +293,7 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
             .single();
 
         if (error || !data) {
-            console.error('[Gateway] User not found:', username);
+            console.error('[Gateway] User not found:', username, error);
             alert('User not found!'); // Simple feedback
             return;
         }
@@ -265,50 +303,92 @@ export const useGatewayStore = create<GatewayState>((set, get) => ({
 
     // Start a Secure DM (Simplified: Create a thread with type 1)
     startDM: async (targetUserId: string) => {
-        const { user } = get();
-        if (!user) return;
+        try {
+            const { user } = get();
+            if (!user) return;
 
-        // Check availability of keys first
-        const keys = await get().getPeerKeys(targetUserId);
-        if (!keys) {
-            console.error('[E2EE] Cannot start DM: Peer has no keys uploaded.');
-            return;
-        }
+            // Check availability of keys first
+            const keys = await get().getPeerKeys(targetUserId);
+            if (!keys) {
+                console.error('[E2EE] Cannot start DM: Peer has no keys uploaded.');
+                return;
+            }
 
-        // Create DM Thread (or fetch existing)
-        // For simplicity, we create a new thread with a deterministic name "dm-id1-id2"
-        const dmName = [user.id, targetUserId].sort().join(':');
+            // Create DM Thread (or fetch existing)
+            // For simplicity, we create a new thread with a deterministic name "dm-id1-id2"
+            const dmName = [user.id, targetUserId].sort().join(':');
 
-        const { data } = await supabase
-            .from('threads')
-            .select('*')
-            .eq('name', dmName)
-            .single();
-
-        let threadId;
-        if (data) {
-            threadId = data.id;
-        } else {
-            // Create it (Requires a pod usually, but we'll put it in a "DM Pod" or just null pod if schema allows)
-            // Schema requires pod_id. We'll hack it into the FIRST pod found for now or a system pod.
-            // Better: Let's just assume we are in a pod and create a PRIVATE thread.
-            const firstPod = get().pods[0];
-            if (!firstPod) return;
-
-            const { data: newThread } = await supabase
+            const { data: existingThread, error: fetchError } = await supabase
                 .from('threads')
-                .insert({
-                    pod_id: firstPod.id,
-                    name: dmName,
-                    type: 1 // 1 = DM / Private
-                })
-                .select()
-                .single();
-            if (newThread) threadId = newThread.id;
-        }
+                .select('*')
+                .eq('name', dmName)
+                .maybeSingle();
 
-        if (threadId) {
-            get().selectThread(threadId);
+            if (fetchError) {
+                console.error('[Gateway] Error fetching DM thread:', fetchError);
+            }
+
+            let threadId;
+            let threadObjToUse: Thread | null = null;
+
+            if (existingThread) {
+                threadId = existingThread.id;
+                threadObjToUse = {
+                    id: existingThread.id,
+                    pod_id: existingThread.pod_id,
+                    name: existingThread.name,
+                    type: existingThread.type
+                };
+            } else {
+                // Create it (Requires a pod usually, but we'll put it in a "DM Pod" or just null pod if schema allows)
+                const firstPod = get().pods[0];
+                if (!firstPod) {
+                    console.error('[Gateway] Cannot create DM: No pods available to anchor the thread.');
+                    return;
+                }
+
+                const { data: newThread, error: insertError } = await supabase
+                    .from('threads')
+                    .insert({
+                        pod_id: firstPod.id,
+                        name: dmName,
+                        type: 1 // 1 = DM / Private
+                    })
+                    .select()
+                    .single();
+
+                if (insertError) {
+                    console.error('[Gateway] Failed to insert DM thread:', insertError);
+                    return;
+                }
+                if (newThread) {
+                    threadId = newThread.id;
+                    threadObjToUse = {
+                        id: newThread.id,
+                        pod_id: newThread.pod_id,
+                        name: newThread.name,
+                        type: newThread.type
+                    };
+                }
+            }
+
+            if (threadId && threadObjToUse) {
+                const finalThread = threadObjToUse; // capture for set
+                set(state => {
+                    const podId = finalThread.pod_id;
+                    return {
+                        pods: state.pods.map(p =>
+                            p.id === podId
+                                ? { ...p, threads: p.threads.some((t: Thread) => t.id === finalThread.id) ? p.threads : [...p.threads, finalThread].sort((a, b) => a.type - b.type) }
+                                : p
+                        )
+                    };
+                });
+
+                get().selectThread(threadId);
+            }
+        } catch (err) {
+            console.error('[Gateway] Fatal error in startDM:', err);
         }
     },
 
